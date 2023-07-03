@@ -1,0 +1,8 @@
+
+tolerance 2.0 
+output plane.pdb 
+filetype pdb 
+structure lj.pdb 
+  number 2094
+  above plane 1 0 0 10
+end structure 

@@ -1,0 +1,8 @@
+
+tolerance 2.0 
+output 99.pdb 
+filetype pdb 
+structure lj.pdb 
+  number 100
+  inside cube 0. 0. 0. 20. 
+end structure 

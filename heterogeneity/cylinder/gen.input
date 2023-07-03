@@ -1,0 +1,8 @@
+
+tolerance 2.0 
+output cylinder.pdb 
+filetype pdb 
+structure lj.pdb 
+  number 3141
+  inside cylinder 0. 0. 0. 1. 0. 0. 10. 20.
+end structure 

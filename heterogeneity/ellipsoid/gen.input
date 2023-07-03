@@ -1,0 +1,8 @@
+
+tolerance 2.0 
+output sphere.pdb 
+filetype pdb 
+structure lj.pdb 
+  number 2094
+  inside ellipsoid 0 0 0 20 10 5 20
+end structure 
