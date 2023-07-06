@@ -1,8 +1,0 @@
-
-tolerance 2.0 
-output sphere.pdb 
-filetype pdb 
-structure lj.pdb 
-  number 2094
-  inside sphere 0. 0. 0. 20.
-end structure 
