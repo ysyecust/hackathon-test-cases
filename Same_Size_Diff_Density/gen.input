@@ -1,8 +1,8 @@
 
 tolerance 2.0 
-output 1.000.pdb 
+output 0.100.pdb 
 filetype pdb 
 structure lj.pdb 
-  number 8000
+  number 800
   inside cube 0. 0. 0. 20. 
 end structure 

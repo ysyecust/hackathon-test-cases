@@ -11,7 +11,7 @@ structure lj.pdb
 end structure 
 """
 
-density = np.linspace(0.1, 1, 10)
+density = np.linspace(0.1, 1, 1)
 
 for i in density:
 

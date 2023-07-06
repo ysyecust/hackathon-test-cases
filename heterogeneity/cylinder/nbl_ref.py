@@ -19,7 +19,12 @@ if __name__ == "__main__":
         # get the positions of atoms
         xyz = atoms.arrays['positions']
         # set the size of cell
-        atoms.set_cell(np.diag([20, 20, 20]))
+        x_max, y_max, z_max = np.max(xyz, axis=0)
+        x_min, y_min, z_min = np.min(xyz, axis=0)
+        x_len = x_max - x_min
+        y_len = y_max - y_min
+        z_len = z_max - z_min
+        atoms.set_cell(np.diag([x_len, y_len, z_len]))
         atoms.set_pbc([True, True, True])
         
         # get_neighborlist
@@ -40,5 +45,5 @@ if __name__ == "__main__":
         
         # save answer as txt
         np.savetxt(f'{name}.pair', pairs, fmt='%d')
-        # save cell as txt
-        np.savetxt(f'{name}.cell', atoms.cell, fmt='%f')     
+        # # save cell as txt
+        # np.savetxt(f'{name}.cell', atoms.cell, fmt='%f')     

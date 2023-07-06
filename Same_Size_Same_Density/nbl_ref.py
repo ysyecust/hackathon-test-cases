@@ -20,7 +20,7 @@ if __name__ == "__main__":
         xyz = atoms.arrays['positions']
         # set the size of cell
         atoms.set_cell(np.diag([20, 20, 20]))
-        atoms.set_pbc([True, True, T])
+        atoms.set_pbc([True, True, True])
         
         # get_neighborlist
         cutoff = 2.0  # cutoff radius      
@@ -40,5 +40,5 @@ if __name__ == "__main__":
         
         # save answer as txt
         np.savetxt(f'{name}.pair', pairs, fmt='%d')
-        # save cell as txt
+        # # save cell as txt
         np.savetxt(f'{name}.cell', atoms.cell, fmt='%f')     

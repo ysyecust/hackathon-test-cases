@@ -40,5 +40,10 @@ if __name__ == "__main__":
         
         # save answer as txt
         np.savetxt(f'{name}.pair', pairs, fmt='%d')
-        # save cell as txt
-        np.savetxt(f'{name}.cell', atoms.cell, fmt='%f')     
+        # # save cell as txt
+        cell = atoms.cell
+        xy = xz = yz = 10
+        cell[0][1] = xy
+        cell[0][2] = xz
+        cell[1][2] = yz
+        np.savetxt(f'{name}.cell', cell, fmt='%f')     

@@ -1,6 +1,6 @@
 
 tolerance 2.0 
-output 99.pdb 
+output 0.pdb 
 filetype pdb 
 structure lj.pdb 
   number 100
