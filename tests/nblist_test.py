@@ -21,12 +21,23 @@ class TestNblist:
                 continue
 
             # read pdb
-            atoms = read(dir / 'init.pdb')
+            for pdb in dir.glob('*.pdb'):
+                atoms = read(pdb)
+                xyz = atoms.arrays['positions']
 
+                # load references results
+                # ref_pairs = json.load(open(pdb.parent / f'{pdb.stem}.pair'))
+                # ref_cell = json.load(open(pdb.parent / f'{pdb.stem}.cell'))
 
-        # allocate resource
-        # pairs = nblist.build(xyz)
+                # allocate resource
+                # pairs = nblist.build(xyz, cell)
 
-        # load references results
-        # ref_pairs = json.load(open('ref_pairs.json'))
+                # npt.assert_equal(pairs, ref_pairs)
+
+                # do something that xyz of atoms is changed
+                # ....
+
+                # pairs = nblist.update(xyz, cell)
+                # npt.assert_equal(pairs, ref_pairs)
+
 
