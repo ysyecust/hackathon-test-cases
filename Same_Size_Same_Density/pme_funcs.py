@@ -1,7 +1,6 @@
-from typing import Tuple, Optional
 from typing import Iterable, Tuple, Optional
 from functools import partial
-
+from setting import DO_JIT
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -33,7 +32,7 @@ from dmff.admp.pairwise import (
 )
 import timeit
 import logging
-DO_JIT = False
+# DO_JIT = False
 DIELECTRIC =1389.3545584
 
 
@@ -132,7 +131,7 @@ def generate_pme_recip_new(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
             u0 = (m_u0 - R_in_m_basis) + pme_order / 2
             return m_u0, u0
 
-        def bspline_new(u, order=pme_order):
+        def bspline(u, order=pme_order):
             """
             Computes the cardinal B-spline function
             """
@@ -165,7 +164,9 @@ def generate_pme_recip_new(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
                 ]
                 return jnp.sum(jnp.stack([condition * output for condition, output in zip(conditions, outputs)]),
                                axis=0)
-        def bspline(u, order=pme_order):
+
+
+        def bspline_old(u, order=pme_order):
             """
             Computes the cardinal B-spline function
             """
@@ -537,7 +538,9 @@ def generate_pme_recip_moveN(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
     bspline_range = jnp.arange(-pme_order // 2, pme_order // 2)
     n_mesh = pme_order ** 3
     shifts = jnp.array(jnp.meshgrid(bspline_range, bspline_range, bspline_range)).T.reshape((1, n_mesh, 3))
-    N = np.array([K1, K2, K3]).reshape(1,1,3)
+    N = np.array([K1, K2, K3])
+    N1 = N.reshape(1,1,3)
+
     def pme_recip(positions, box, Q):
         '''
         The generated pme_recip space calculator
@@ -586,7 +589,7 @@ def generate_pme_recip_moveN(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
             u0 = (m_u0 - R_in_m_basis) + pme_order / 2
             return m_u0, u0
 
-        def bspline_new(u, order=pme_order):
+        def bspline(u, order=pme_order):
             """
             Computes the cardinal B-spline function
             """
@@ -620,7 +623,7 @@ def generate_pme_recip_moveN(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
                 return jnp.sum(jnp.stack([condition * output for condition, output in zip(conditions, outputs)]),
                                axis=0)
 
-        def bspline(u, order=pme_order):
+        def bspline_old(u, order=pme_order):
             """
             Computes the cardinal B-spline function
             """
@@ -879,6 +882,8 @@ def generate_pme_recip_moveN(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
             ### jax trick implementation without using for loop
             ### NOTICE: this implementation does not work with numpy!
             Q_mesh = jnp.zeros((N[0], N[1], N[2]))
+            # print("Q_mesh:",Q_mesh.shape)
+            # print("indices_arr:",indices_arr.sahpe)
             Q_mesh = Q_mesh.at[indices_arr[:, :, 0], indices_arr[:, :, 1], indices_arr[:, :, 2]].add(Q_mesh_pera)
             return Q_mesh
 
@@ -919,7 +924,7 @@ def generate_pme_recip_moveN(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
             # kpts = jnp.column_stack((kpts, ksq)).T
             return kpts
 
-        def spread_Q(positions, box, Q):
+        def spread_Q(positions, box, Q,):
             '''
             This is the high level wrapper function, in charge of spreading the charges/multipoles on grid
 
@@ -955,7 +960,7 @@ def generate_pme_recip_moveN(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
         # m = jnp.linspace(-2,2,5).reshape(5, 1, 1)
         theta_k = jnp.prod(
             jnp.sum(
-                bspline(m + pme_order / 2) * jnp.cos(2 * jnp.pi * m * kpts_int[jnp.newaxis] / N),
+                bspline(m + pme_order / 2) * jnp.cos(2 * jnp.pi * m * kpts_int[jnp.newaxis] / N1),
                 axis=0
             ),
             axis=1
@@ -1726,79 +1731,3 @@ def energy_pme(positions, box, pairs,
             ene_self = 0.0
         return ene_real + ene_self
 
-from openmm import *
-from dmff import Hamiltonian, NeighborList
-if __name__=="__main__":
-    pdb = "0.pdb"
-    prm = "pme_ff.xml"
-    # prm, value",
-    # [("tests/data/lj3.pdb", "tests/data/lj3.xml", -2.001220464706421)])
-    rcut = 1.0  # nanometers
-    pdb = app.PDBFile(pdb)
-    h = Hamiltonian(prm)
-    box_vectors = np.diag([20, 20, 20]) * unit.nanometer
-    pdb.topology.setPeriodicBoxVectors(box_vectors)
-    potential = h.createPotential(
-        pdb.topology,
-        nonbondedMethod=app.PME,
-        constraints=app.HBonds,
-        removeCMMotion=False,
-        rigidWater=False,
-        nonbondedCutoff=rcut * unit.nanometers,
-        useDispersionCorrection=False,
-        PmeCoeffMethod="gromacs",
-        PmeSpacing=0.10
-    )
-    positions = jnp.array(
-        pdb.getPositions(asNumpy=True).value_in_unit(unit.nanometer)
-    )
-    box = jnp.array([
-        [20.0, 0.00, 0.00],
-        [0.00, 20.0, 0.00],
-        [0.00, 0.00, 20.0]
-    ])
-
-    nbList = NeighborList(box, rcut, potential.meta["cov_map"])
-    nbList.allocate(positions)
-    pairs = nbList.pairs
-    r_cut = 1.0
-    map_charge =jnp.zeros(100,int)
-    kappa = 3.458910584449768
-    K1 = 200
-    K2 = 200
-    K3 = 200
-    top_mat = None
-    coulforce = CoulombPMEForce(r_cut, map_charge, kappa,
-                                (K1, K2, K3), topology_matrix=top_mat)
-    coulenergy = coulforce.generate_get_energy()
-    charge = jnp.ones(1,float)
-    mscales_coul =jnp.array([0.,0.,1.,1.,1.,1.],float)
-    coulE = coulenergy(positions, box, pairs,
-                       charge, mscales_coul)
-
-    test_num = 30
-    start_time = timeit.default_timer()
-    for i in range(test_num):
-        coulE = coulenergy(positions, box, pairs,
-                           charge, mscales_coul)
-
-    print("计算平均时间:", (timeit.default_timer() - start_time) / test_num)
-
-
-    print(coulE)
-
-    # coulforce1 = CoulombPMEForce_MoveN(r_cut, map_charge, kappa,
-    #                             (K1, K2, K3), topology_matrix=top_mat)
-    # coulenergy1= coulforce1.generate_get_energy()
-    # charge = jnp.ones(1, float)
-    # mscales_coul = jnp.array([0., 0., 1., 1., 1., 1.], float)
-    # coulE = coulenergy1(positions, box, pairs,
-    #                    charge, mscales_coul)
-    # start_time = timeit.default_timer()
-    # for i in range(test_num):
-    #     coulE = coulenergy1(positions, box, pairs,
-    #                        charge, mscales_coul)
-    #
-    # print("计算平均时间_修改N位置:", (timeit.default_timer() - start_time) / test_num)
-    #
-    # print(coulE)

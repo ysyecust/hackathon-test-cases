@@ -33,7 +33,7 @@ from dmff.admp.pairwise import (
 )
 import timeit
 import logging
-DO_JIT = False
+DO_JIT = True
 DIELECTRIC =1389.3545584
 
 
@@ -165,6 +165,7 @@ def generate_pme_recip_new(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
                 ]
                 return jnp.sum(jnp.stack([condition * output for condition, output in zip(conditions, outputs)]),
                                axis=0)
+
         def bspline(u, order=pme_order):
             """
             Computes the cardinal B-spline function
@@ -339,7 +340,7 @@ def generate_pme_recip_new(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
             u = (u0[:, jnp.newaxis, :] + shifts).reshape((N_a * n_mesh, 3))
 
             # M_u = bspline(u)
-            M_u = bspline(u)
+            M_u = bspline_new(u)
             theta = theta_eval(u, M_u)
             if lmax == 0:
                 return theta.reshape(N_a, n_mesh, n_harm)
@@ -500,7 +501,7 @@ def generate_pme_recip_new(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
         # m = jnp.linspace(-2,2,5).reshape(5, 1, 1)
         theta_k = jnp.prod(
             jnp.sum(
-                bspline(m + pme_order / 2) * jnp.cos(2 * jnp.pi * m * kpts_int[jnp.newaxis] / N),
+                bspline_new(m + pme_order / 2) * jnp.cos(2 * jnp.pi * m * kpts_int[jnp.newaxis] / N),
                 axis=0
             ),
             axis=1
@@ -794,7 +795,7 @@ def generate_pme_recip_moveN(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
             u = (u0[:, jnp.newaxis, :] + shifts).reshape((N_a * n_mesh, 3))
 
             # M_u = bspline(u)
-            M_u = bspline(u)
+            M_u = bspline_new(u)
             theta = theta_eval(u, M_u)
             if lmax == 0:
                 return theta.reshape(N_a, n_mesh, n_harm)
@@ -946,16 +947,16 @@ def generate_pme_recip_moveN(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
             return Q_mesh_on_m(Q_mesh_pera, m_u0, N)
 
         # spread Q
-        # N = np.array([K1, K2, K3])
+        N = np.array([K1, K2, K3])
         Q_mesh = spread_Q(positions, box, Q)
-        # N = N.reshape(1, 1, 3)
+        N = N.reshape(1, 1, 3)
         kpts_int = setup_kpts_integer(N)
         kpts = setup_kpts(box, kpts_int)
         m = jnp.linspace(-pme_order // 2 + 1, pme_order // 2 - 1, pme_order - 1).reshape(pme_order - 1, 1, 1)
         # m = jnp.linspace(-2,2,5).reshape(5, 1, 1)
         theta_k = jnp.prod(
             jnp.sum(
-                bspline(m + pme_order / 2) * jnp.cos(2 * jnp.pi * m * kpts_int[jnp.newaxis] / N),
+                bspline_new(m + pme_order / 2) * jnp.cos(2 * jnp.pi * m * kpts_int[jnp.newaxis] / N),
                 axis=0
             ),
             axis=1
@@ -1782,23 +1783,23 @@ if __name__=="__main__":
         coulE = coulenergy(positions, box, pairs,
                            charge, mscales_coul)
 
-    print("计算平均时间:", (timeit.default_timer() - start_time) / test_num)
+    print("计算平均时间 jit :", (timeit.default_timer() - start_time) / test_num)
 
 
     print(coulE)
 
-    # coulforce1 = CoulombPMEForce_MoveN(r_cut, map_charge, kappa,
-    #                             (K1, K2, K3), topology_matrix=top_mat)
-    # coulenergy1= coulforce1.generate_get_energy()
-    # charge = jnp.ones(1, float)
-    # mscales_coul = jnp.array([0., 0., 1., 1., 1., 1.], float)
-    # coulE = coulenergy1(positions, box, pairs,
-    #                    charge, mscales_coul)
-    # start_time = timeit.default_timer()
-    # for i in range(test_num):
-    #     coulE = coulenergy1(positions, box, pairs,
-    #                        charge, mscales_coul)
-    #
-    # print("计算平均时间_修改N位置:", (timeit.default_timer() - start_time) / test_num)
-    #
-    # print(coulE)
+    coulforce1 = CoulombPMEForce_MoveN(r_cut, map_charge, kappa,
+                                (K1, K2, K3), topology_matrix=top_mat)
+    coulenergy1= coulforce1.generate_get_energy()
+    charge = jnp.ones(1, float)
+    mscales_coul = jnp.array([0., 0., 1., 1., 1., 1.], float)
+    coulE = coulenergy1(positions, box, pairs,
+                       charge, mscales_coul)
+    start_time = timeit.default_timer()
+    for i in range(test_num):
+        coulE = coulenergy1(positions, box, pairs,
+                           charge, mscales_coul)
+
+    print("计算平均时间_修改N位置 jit :", (timeit.default_timer() - start_time) / test_num)
+
+    print(coulE)
