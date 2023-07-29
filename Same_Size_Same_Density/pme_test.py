@@ -71,7 +71,7 @@ if __name__=="__main__":
 
     print(coulE)
 
-    coulforce1 = CoulombPMEForce_MoveN(r_cut, map_charge, kappa,
+    coulforce1 = CoulombPMEForce_setup_kpts(r_cut, map_charge, kappa,
                                 (K1, K2, K3), topology_matrix=top_mat)
     coulenergy1= coulforce1.generate_get_energy()
     charge = jnp.ones(1, float)
@@ -85,7 +85,7 @@ if __name__=="__main__":
 
     spend_time = (timeit.default_timer() - start_time) / test_num
     if DO_JIT:
-        print("计算平均时间--moveN jit:", spend_time)
+        print("计算平均时间--jit setup kpt jit:", spend_time)
     # print("计算平均时间:", (timeit.default_timer() - start_time) / test_num)
     else:
-        print("计算平均时间--moveN:", spend_time)
+        print("计算平均时间--setup kpt:", spend_time)
