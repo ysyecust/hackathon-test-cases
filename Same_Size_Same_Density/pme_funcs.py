@@ -72,6 +72,7 @@ def pair_buffer_scales_new(p):
     result = jax.lax.cond(jax.lax.lt(dp, 0), lambda _: jnp.array(1), lambda _: jnp.array(0), None)
     return result
 
+@jit
 def Ck_1(ksq, kappa, V):
     return 2*jnp.pi/V/ksq * jnp.exp(-ksq/4/kappa**2)
 def generate_pme_recip_new(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
@@ -536,6 +537,7 @@ def generate_pme_recip_new(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
         # for electrostatic, need to exclude gamma point
         # for dispersion, need to include gamma point
         if not gamma:
+
             C_k = Ck_fn(kpts[3, 1:], kappa, V)
             E_k = C_k * jnp.abs(S_k[1:] / theta_k[1:]) ** 2
         else:
@@ -1543,9 +1545,191 @@ def generate_pme_recip_setup_kpts(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lm
             return jnp.sum(E_k)
 
     if DO_JIT:
-        return jit(pme_recip, static_argnums=())
+        # return jit(pme_recip, static_argnums=())
+        return jit(pme_recip)
     else:
         return pme_recip
+
+def bspline(u):
+    """
+    Computes the cardinal B-spline function
+    """
+
+    u2 = u ** 2
+    u3 = u ** 3
+    u4 = u ** 4
+    u5 = u ** 5
+    u_less_1 = u - 1
+    u_less_1_p5 = u_less_1 ** 5
+    u_less_2 = u - 2
+    u_less_2_p5 = u_less_2 ** 5
+    u_less_3 = u - 3
+    u_less_3_p5 = u_less_3 ** 5
+    conditions = [
+        jnp.logical_and(u >= 0., u < 1.),
+        jnp.logical_and(u >= 1., u < 2.),
+        jnp.logical_and(u >= 2., u < 3.),
+        jnp.logical_and(u >= 3., u < 4.),
+        jnp.logical_and(u >= 4., u < 5.),
+        jnp.logical_and(u >= 5., u < 6.)
+    ]
+    outputs = [
+        u5 / 120,
+        u5 / 120 - u_less_1_p5 / 20,
+        u5 / 120 + u_less_2_p5 / 8 - u_less_1_p5 / 20,
+        u5 / 120 - u_less_3_p5 / 6 + u_less_2_p5 / 8 - u_less_1_p5 / 20,
+        u5 / 24 - u4 + 19 * u3 / 2 - 89 * u2 / 2 + 409 * u / 4 - 1829 / 20,
+        -u5 / 120 + u4 / 4 - 3 * u3 + 18 * u2 - 54 * u + 324 / 5
+    ]
+    return jnp.sum(jnp.stack([condition * output for condition, output in zip(conditions, outputs)]),
+                   axis=0)
+
+
+# def setup_kpts_integer(N):
+#     """
+#     Outputs:
+#         kpts_int:
+#             n_k * 3 matrix, n_k = N[0] * N[1] * N[2]
+#     """
+#     max_N = 256  # Or some other value that is guaranteed to be larger than any N
+#     base_range = jnp.arange(-max_N, max_N + 1)
+#     N_half = N // 2
+#     kx, ky, kz = [jnp.roll(jax.lax.dynamic_slice(base_range, (max_N - N_half[i],), (2 * N_half[i] + 1,)), -N_half[i]) for i
+#                   in range(3)]
+#     kpts_int = jnp.stack(jnp.meshgrid(kz, kx, ky)).reshape(3, -1).T
+#     return kpts_int
+#
+# setup_kpts_integer = jit(setup_kpts_integer,static_argnums=(0))
+
+
+def setup_kpts_integer(N):
+    """
+    Outputs:
+        kpts_int:
+            n_k * 3 matrix, n_k = N[0] * N[1] * N[2]
+    """
+    N = jnp.array(N)
+    N_half = N.reshape(3)
+    kx, ky, kz = [jnp.roll(jnp.arange(- (N_half[i] - 1) // 2, (N_half[i] + 1) // 2), - (N_half[i] - 1) // 2) for
+                  i in range(3)]
+    kpts_int = jnp.hstack([ki.flatten()[:, jnp.newaxis] for ki in jnp.meshgrid(kz, kx, ky)])
+    return kpts_int
+# setup_kpts_integer = jit(setup_kpts_integer,static_argnums=(0))
+def pme_recip_canjit1(N,Q_mesh,positions,box,Q):
+    N = jnp.array(N)
+    pme_order = 6
+    # global variables for the reciprocal module, all related to pme_order
+    bspline_range = jnp.arange(-pme_order // 2, pme_order // 2)
+    n_mesh = pme_order ** 3
+    shifts = jnp.array(jnp.meshgrid(bspline_range, bspline_range, bspline_range)).T.reshape((1, n_mesh, 3))
+    # N = np.array([K1, K2, K3])
+    # Q_mesh = spread_Q(positions, box, Q)
+    #--------spread_Q 函数展开--------
+    # Nj_Aji_star = get_recip_vectors(N, box)-------------->
+    Nj_Aji_star = (N.reshape((1, 3)) * jnp.linalg.inv(box)).T
+    # For each atom, find the reference mesh point, and u position of the site
+    # m_u0, u0 = u_reference(positions, Nj_Aji_star)----------->
+    R_in_m_basis = jnp.einsum("ij,kj->ki", Nj_Aji_star, positions)
+    m_u0 = jnp.ceil(R_in_m_basis).astype(int)
+    u0 = (m_u0 - R_in_m_basis) + pme_order / 2
+
+
+    # find out the STGO values of each grid point
+    # sph_harms = sph_harmonics_GO(u0, Nj_Aji_star)---------->
+    # n_harm = ((lmax + 1) ** 2).astype(int)
+    # n_harm = ((lmax + 1) ** 2)
+    n_harm = 1
+    N_a = u0.shape[0]
+    # mesh points around each site
+    u = (u0[:, jnp.newaxis, :] + shifts).reshape((N_a * n_mesh, 3))
+
+    # M_u = bspline(u)
+    #M_u = bspline(u) ---------------->
+
+
+    M_u = bspline(u)
+    # theta = theta_eval(u, M_u)-------->
+    theta = jnp.prod(M_u, axis=-1)
+    sph_harms = theta.reshape(N_a, n_mesh, n_harm)
+
+    # find out the local meshed values for each site
+    # Q_mesh_pera = Q_m_peratom(Q, sph_harms)------------>
+    N_a = sph_harms.shape[0]
+    Q_dbf = Q[:, 0:1]
+    Q_mesh_pera = jnp.sum(Q_dbf[:, jnp.newaxis, :] * sph_harms, axis=2)
+    # Q_mesh =  Q_mesh_on_m(Q_mesh_pera, m_u0, N)---------->
+    indices_arr = jnp.mod(m_u0[:, np.newaxis, :] + shifts, N[np.newaxis, np.newaxis, :])
+    ### jax trick implementation without using for loop
+    ### NOTICE: this implementation does not work with numpy!
+    # Q_mesh = jnp.zeros((N[0], N[1], N[2]))
+    # print("Q_mesh:",Q_mesh.shape)
+    # print("indices_arr:",indices_arr.sahpe)
+    Q_mesh = Q_mesh.at[indices_arr[:, :, 0], indices_arr[:, :, 1], indices_arr[:, :, 2]].add(Q_mesh_pera)
+
+
+
+    #--------spread_Q 函数展开--------
+    # N = N.reshape(1, 1, 3)
+    # kpts_int = setup_kpts_integer(N)------------->
+    # N_half = N.reshape(3)
+    # kx, ky, kz = [jnp.roll(jnp.arange(- (N_half[i] - 1) // 2, (N_half[i] + 1) // 2), - (N_half[i] - 1) // 2) for
+    #               i in range(3)]
+    # kpts_int = jnp.hstack([ki.flatten()[:, jnp.newaxis] for ki in jnp.meshgrid(kz, kx, ky)])
+    return Q_mesh
+    # kpts_int = setup_kpts_integer(N)
+def pme_recip_canjit2(N,box,kpts_int,Q_mesh,gamma,kappa):
+    # kpts = setup_kpts(box, kpts_int)----------->
+    box_inv = jnp.linalg.inv(box)
+    # K * 3, coordinate in reciprocal space
+    kpts = 2 * jnp.pi * kpts_int.dot(box_inv)
+    ksq = jnp.sum(kpts ** 2, axis=1)
+    # 4 * K
+    # kpts = jnp.hstack((kpts, ksq[:, jnp.newaxis])).T
+    kpts = jnp.concatenate((kpts.T, ksq[None, :]), axis=0)
+    pme_order= 6
+    m = jnp.linspace(-pme_order // 2 + 1, pme_order // 2 - 1, pme_order - 1).reshape(pme_order - 1, 1, 1)
+    # m = jnp.linspace(-2,2,5).reshape(5, 1, 1)
+    theta_k = jnp.prod(
+        jnp.sum(
+            bspline(m + pme_order / 2) * jnp.cos(2 * jnp.pi * m * kpts_int[jnp.newaxis] / N),
+            axis=0
+        ),
+        axis=1
+    )
+    V = jnp.linalg.det(box)
+    S_k = jnp.fft.fftn(Q_mesh).flatten()
+    # for electrostatic, need to exclude gamma point
+    # for dispersion, need to include gamma point
+    # return jax.lax.cond(not gamma,calc_true,calc_false,(kappa, V, kpts, S_k, theta_k))
+    if not gamma:
+        # C_k = Ck_fn(kpts[3, 1:], kappa, V)
+        C_k = 2 * jnp.pi / V / kpts[3, 1:] * jnp.exp(-kpts[3, 1:] / 4 / kappa ** 2)
+        E_k = C_k * jnp.abs(S_k[1:] / theta_k[1:]) ** 2
+        return jnp.sum(E_k) * DIELECTRIC
+    else:
+        # C_k = Ck_fn(kpts[3, :], kappa, V)
+        C_k = 2 * jnp.pi / V / kpts[3, :] * jnp.exp(-kpts[3, :] / 4 / kappa ** 2)
+        # debug
+        # for i in range(1000):
+        #     print('%15.8f%15.8f'%(jnp.real(C_k[i]), jnp.imag(C_k[i])))
+        E_k = C_k * jnp.abs(S_k / theta_k) ** 2
+        return jnp.sum(E_k)
+@jit
+def calc_true(kappa, V, kpts, S_k, theta_k):
+    C_k = 2 * jnp.pi / V / kpts[3, 1:] * jnp.exp(-kpts[3, 1:] / 4 / kappa ** 2)
+    E_k = C_k * jnp.abs(S_k[1:] / theta_k[1:]) ** 2
+    return jnp.sum(E_k) * DIELECTRIC
+
+@jit
+def calc_false(kappa, V, kpts, S_k, theta_k):
+    C_k = 2 * jnp.pi / V / kpts[3, :] * jnp.exp(-kpts[3, :] / 4 / kappa ** 2)
+    E_k = C_k * jnp.abs(S_k / theta_k) ** 2
+    return jnp.sum(E_k)
+
+# Then replace the if statement with:
+
+pme_recip_canjit1 = jit(pme_recip_canjit1,static_argnums=(0))
+pme_recip_canjit2 = jit(pme_recip_canjit2,static_argnums=(4))
 class CoulombPMEForce:
 
     def __init__(
@@ -1732,6 +1916,72 @@ class CoulombPMEForce_setup_kpts:
                 None,
                 None,
                 pme_recip_fn,
+                self.kappa / 10,
+                self.K1,
+                self.K2,
+                self.K3,
+                self.lmax,
+                False,
+            )
+
+        def get_energy_bcc(positions, box, pairs, pre_charges, bcc, mscales):
+            charges = pre_charges + jnp.dot(self.top_mat, bcc).flatten()
+            return get_energy(positions, box, pairs, charges, mscales)
+
+        if self.top_mat is None:
+            return get_energy
+        else:
+            return get_energy_bcc
+class CoulombPMEForce_all:
+
+    def __init__(
+            self,
+            r_cut: float,
+            map_prm: Iterable[int],
+            kappa: float,
+            K: Tuple[int, int, int],
+            pme_order: int = 6,
+            topology_matrix: Optional[jnp.array] = None,
+    ):
+        self.r_cut = r_cut
+        self.map_prm = map_prm
+        self.lmax = 0
+        self.kappa = kappa
+        self.K1, self.K2, self.K3 = K[0], K[1], K[2]
+        self.pme_order = pme_order
+        self.top_mat = topology_matrix
+        assert pme_order == 6, "PME order other than 6 is not supported"
+
+    def generate_get_energy(self):
+
+        def get_energy(positions, box, pairs, charges, mscales):
+
+            # pme_recip_fn = generate_pme_recip_setup_kpts(
+            #     Ck_fn=Ck_1,
+            #     kappa=self.kappa / 10,
+            #     gamma=False,
+            #     pme_order=self.pme_order,
+            #     K1=self.K1,
+            #     K2=self.K2,
+            #     K3=self.K3,
+            #     lmax=self.lmax,
+            # )
+
+            atomCharges = charges[self.map_prm[np.arange(positions.shape[0])]]
+            atomChargesT = jnp.reshape(atomCharges, (-1, 1))
+            return energy_pme_all(
+                positions * 10,
+                box * 10,
+                pairs,
+                atomChargesT,
+                None,
+                None,
+                None,
+                mscales,
+                None,
+                None,
+                None,
+                None,
                 self.kappa / 10,
                 self.K1,
                 self.K2,
@@ -2355,3 +2605,63 @@ def energy_pme(positions, box, pairs,
             ene_self = 0.0
         return ene_real + ene_self
 
+def energy_pme_all(positions, box, pairs,
+        Q_local, Uind_global, pol, tholes,
+        mScales, pScales, dScales,
+        construct_local_frame_fn, pme_recip_fn, kappa, K1, K2, K3, lmax, lpol, lpme=True):
+
+
+    if lmax > 0:
+        local_frames = construct_local_frame_fn(positions, box)
+        Q_global = rot_local2global(Q_local, local_frames, lmax)
+    else:
+        if lpol:
+            # if fixed multipole only contains charge, and it's polarizable, then expand Q matrix
+            dips = jnp.zeros((Q_local.shape[0], 3))
+            Q_global = jnp.hstack((Q_local, dips))
+            lmax = 1
+        else:
+            Q_global = Q_local
+
+    # note we assume when lpol is True, lmax should be >= 1
+    if lpol:
+        # convert Uind to global harmonics, in accord with Q_global
+        U_ind = C1_c2h.dot(Uind_global.T).T
+        Q_global_tot = Q_global.at[:, 1:4].add(U_ind)
+    else:
+        Q_global_tot = Q_global
+
+    if lpme is False:
+        kappa = 0
+
+    if lpol:
+        ene_real = pme_real(positions, box, pairs, Q_global, U_ind, pol, tholes,
+                           mScales, pScales, dScales, kappa, lmax, True)
+    else:
+        ene_real = pme_real(positions, box, pairs, Q_global, None, None, None,
+                           mScales, None, None, kappa, lmax, False)
+
+    if lpme:
+        # ene_recip = pme_recip_fjn(positions, box, Q_global_tot)
+        N  = jnp.array([K1, K2, K3])
+        N1  = tuple([200, 200, 200])
+        Q_mesh = jnp.zeros((K1,K2,K3))
+        # ene_recip = pme_recip_canjit( kappa=0.3458910584449768, gamma=False, pme_order=6,N=N, Q_mesh=Q_mesh, lmax=0,positions=positions,box=box,Q=Q_global_tot)
+        N = N.reshape(1, 1, 3)
+        Q_mesh = pme_recip_canjit1(N=N1,Q_mesh=Q_mesh,positions=positions,box=box,Q=Q_global_tot)
+        # N2 = tuple([[[200,200,200]]])
+        kpts_int = setup_kpts_integer(N)
+        ene_recip = pme_recip_canjit2(N=N,box=box,kpts_int=kpts_int,Q_mesh=Q_mesh,gamma=False,kappa=0.3458910584449768)
+        # ene_recip = pme_recip_canjit( 0.3458910584449768, False, 6,N, Q_mesh, 0,positions,box,Q_global_tot)
+        ene_self = pme_self(Q_global_tot, kappa, lmax)
+
+        if lpol:
+            ene_self += pol_penalty(U_ind, pol)
+        return ene_real + ene_recip + ene_self
+
+    else:
+        if lpol:
+            ene_self = pol_penalty(U_ind, pol)
+        else:
+            ene_self = 0.0
+        return ene_real + ene_self

@@ -71,7 +71,7 @@ if __name__=="__main__":
 
     print(coulE)
 
-    coulforce1 = CoulombPMEForce_setup_kpts(r_cut, map_charge, kappa,
+    coulforce1 = CoulombPMEForce_all(r_cut, map_charge, kappa,
                                 (K1, K2, K3), topology_matrix=top_mat)
     coulenergy1= coulforce1.generate_get_energy()
     charge = jnp.ones(1, float)
