@@ -1728,8 +1728,8 @@ def calc_false(kappa, V, kpts, S_k, theta_k):
 
 # Then replace the if statement with:
 
-pme_recip_canjit1 = jit(pme_recip_canjit1,static_argnums=(0))
-pme_recip_canjit2 = jit(pme_recip_canjit2,static_argnums=(4))
+# pme_recip_canjit1 = jit(pme_recip_canjit1,static_argnums=(0))
+# pme_recip_canjit2 = jit(pme_recip_canjit2,static_argnums=(4))
 class CoulombPMEForce:
 
     def __init__(
