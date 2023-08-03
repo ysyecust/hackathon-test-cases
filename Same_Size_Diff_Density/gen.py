@@ -18,4 +18,4 @@ for i in density:
     with open('gen.input', 'w') as f:
         f.write(input_template.format(output_name=f'{i:.3f}', number=int(20**3*i)))
 
-    os.system('packmol < gen.input')
+    os.system('../packmol-20.14.2/packmol < gen.input')

@@ -11,7 +11,7 @@ if __name__=="__main__":
     DEFAULT_THOLE_WIDTH = 5.0
 
 
-    pdb = "0.pdb"
+    pdb = "0.100.pdb"
     prm = "pme_ff.xml"
     # prm, value",
     # [("tests/data/lj3.pdb", "tests/data/lj3.xml", -2.001220464706421)])
@@ -50,7 +50,7 @@ if __name__=="__main__":
     K2 = 200
     K3 = 200
     top_mat = None
-    coulforce = CoulombPMEForce_MoveN(r_cut, map_charge, kappa,
+    coulforce = CoulombPMEForce(r_cut, map_charge, kappa,
                                 (K1, K2, K3), topology_matrix=top_mat)
     coulenergy = coulforce.generate_get_energy()
     charge = jnp.ones(1,float)
@@ -73,23 +73,23 @@ if __name__=="__main__":
     print(coulE)
     # with jax.profiler.trace("profile/jax-trace", create_perfetto_link=True):
     # jax.profiler.start_trace("/tmp/tensorboard")
-    # coulforce1 = CoulombPMEForce_setup_kpts(r_cut, map_charge, kappa,
-    #                             (K1, K2, K3), topology_matrix=top_mat)
-    # coulenergy1= coulforce1.generate_get_energy()
-    # charge = jnp.ones(1, float)
-    # mscales_coul = jnp.array([0., 0., 1., 1., 1., 1.], float)
-    # coulE = coulenergy1(positions, box, pairs,
-    #                    charge, mscales_coul)
-    # start_time = timeit.default_timer()
-    # for i in range(test_num):
-    #     coulE = coulenergy1(positions, box, pairs,
-    #                        charge, mscales_coul)
-    #
-    # spend_time = (timeit.default_timer() - start_time) / test_num
-    # if DO_JIT:
-    #     print("计算平均时间--jit setup kpt jit:", spend_time)
-    # # print("计算平均时间:", (timeit.default_timer() - start_time) / test_num)
-    # else:
-    #     print("计算平均时间--setup kpt:", spend_time)
+    coulforce1 = CoulombPMEForce_all(r_cut, map_charge, kappa,
+                                (K1, K2, K3), topology_matrix=top_mat)
+    coulenergy1= coulforce1.generate_get_energy()
+    charge = jnp.ones(1, float)
+    mscales_coul = jnp.array([0., 0., 1., 1., 1., 1.], float)
+    coulE = coulenergy1(positions, box, pairs,
+                       charge, mscales_coul)
+    start_time = timeit.default_timer()
+    for i in range(test_num):
+        coulE = coulenergy1(positions, box, pairs,
+                           charge, mscales_coul)
+
+    spend_time = (timeit.default_timer() - start_time) / test_num
+    if DO_JIT:
+        print("计算平均时间--jit setup kpt jit:", spend_time)
+    # print("计算平均时间:", (timeit.default_timer() - start_time) / test_num)
+    else:
+        print("计算平均时间--setup kpt:", spend_time)
 
     # jax.profiler.stop_trace()

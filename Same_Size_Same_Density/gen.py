@@ -17,4 +17,4 @@ for i in range(n_cases):
     with open('gen.input', 'w') as f:
         f.write(input_template.format(output_name=f'{i}'))
 
-    os.system('packmol < gen.input')
+    os.system('../packmol-20.14.2/packmol < gen.input')

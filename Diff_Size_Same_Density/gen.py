@@ -21,4 +21,4 @@ for s, n in zip(box_size.astype(int), number.astype(int)):
     with open('gen.input', 'w') as f:
         f.write(input_template.format(output_name=f's_{s}_n_{n}', number=n, box_size=s))
 
-    os.system('packmol < gen.input')
+    os.system('../packmol-20.14.2/packmol < gen.input')
