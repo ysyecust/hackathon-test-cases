@@ -1,9 +1,9 @@
 
 from openmm import *
 from dmff import Hamiltonian, NeighborList
-from pme_funcs import *
+from pme.pme_funcs import *
 import openmm
-# from setting import DO_JIT
+from pme.setting import DO_JIT
 if __name__=="__main__":
 
     DIELECTRIC = 1389.3545584

@@ -1,7 +1,8 @@
 
 from openmm import *
 from dmff import Hamiltonian, NeighborList
-from pme_funcs import *
+from pme.pme_funcs import *
+from pme.setting import DO_JIT
 import openmm
 # from setting import DO_JIT
 if __name__=="__main__":
