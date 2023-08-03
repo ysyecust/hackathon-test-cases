@@ -1,6 +1,6 @@
 from typing import Iterable, Tuple, Optional
 from functools import partial
-from setting import DO_JIT
+from pme.setting import DO_JIT
 import numpy as np
 import jax
 import jax.numpy as jnp
