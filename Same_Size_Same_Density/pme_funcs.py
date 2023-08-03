@@ -132,7 +132,7 @@ def generate_pme_recip_new(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
             u0 = (m_u0 - R_in_m_basis) + pme_order / 2
             return m_u0, u0
 
-        def bspline_new(u, order=pme_order):
+        def bspline(u, order=pme_order):
             """
             Computes the cardinal B-spline function
             """
@@ -167,7 +167,7 @@ def generate_pme_recip_new(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
                                axis=0)
 
 
-        def bspline(u, order=pme_order):
+        def bspline_old(u, order=pme_order):
             """
             Computes the cardinal B-spline function
             """

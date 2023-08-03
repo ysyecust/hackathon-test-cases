@@ -1,6 +1,6 @@
 from typing import Iterable, Tuple, Optional
 from functools import partial
-from pme.setting import DO_JIT
+from setting import DO_JIT
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -132,7 +132,7 @@ def generate_pme_recip_new(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
             u0 = (m_u0 - R_in_m_basis) + pme_order / 2
             return m_u0, u0
 
-        def bspline_new(u, order=pme_order):
+        def bspline(u, order=pme_order):
             """
             Computes the cardinal B-spline function
             """
@@ -167,7 +167,7 @@ def generate_pme_recip_new(Ck_fn, kappa, gamma, pme_order, K1, K2, K3, lmax):
                                axis=0)
 
 
-        def bspline(u, order=pme_order):
+        def bspline_old(u, order=pme_order):
             """
             Computes the cardinal B-spline function
             """
@@ -1728,8 +1728,8 @@ def calc_false(kappa, V, kpts, S_k, theta_k):
 
 # Then replace the if statement with:
 
-pme_recip_canjit1 = jit(pme_recip_canjit1,static_argnums=(0))
-pme_recip_canjit2 = jit(pme_recip_canjit2,static_argnums=(4))
+# pme_recip_canjit1 = jit(pme_recip_canjit1,static_argnums=(0))
+# pme_recip_canjit2 = jit(pme_recip_canjit2,static_argnums=(4))
 class CoulombPMEForce:
 
     def __init__(
