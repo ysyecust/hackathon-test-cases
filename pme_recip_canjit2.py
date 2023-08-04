@@ -38,6 +38,7 @@ def bspline(u, order=pme_order):
         ]
         return jnp.sum(jnp.stack([condition * output for condition, output in zip(conditions, outputs)]),
                        axis=0)
+bspline = jax.jit(bspline)
 
 def pme_recip_canjit1(N,Q_mesh,positions,box,Q):
     # N = jnp.array(N)
@@ -225,6 +226,7 @@ box_inv_f_jit = jax.jit(box_inv_f)
 kpts_f_jit = jax.jit(kpts_f)
 m_f_jit = jax.jit(m_f,static_argnums=(0))
 theta_f1_jit = jax.jit(theta_f1)
+theta_f_jit = jax.jit(theta_f)
 SK_f_jit = jax.jit(SK_f)
 gamma_f_jit = jax.jit(gamma_f,static_argnums=(0))
 def pme_recip_2(N,box,kpts_int,Q_mesh,gamma,kappa,pme_order):
@@ -247,6 +249,34 @@ def pme_recip_2_j(N,box,kpts_int,Q_mesh,gamma,kappa,pme_order):
     kpts,ksq = kpts_f(box_inv)
     m = m_f(pme_order)
     theta_k = theta_f2(m,pme_order,kpts_int,N)
+    V,S_k = SK_f(box,Q_mesh)
+    result = gamma_f(gamma, kappa, V, kpts, S_k, theta_k)
+    return result
+def pme_recip_2_base(N,box,kpts_int,Q_mesh,gamma,kappa,pme_order):
+    # box_inv = box_inv_f_jit(box)
+    # kpts,ksq = kpts_f_jit(box_inv)
+    # m = m_f_jit(pme_order)
+    # theta_k = theta_f1_jit(m,pme_order,kpts_int,N)
+    # V,S_k = SK_f_jit(box,Q_mesh)
+    # result = gamma_f_jit(gamma, kappa, V, kpts, S_k, theta_k)
+    box_inv = box_inv_f(box)
+    kpts,ksq = kpts_f(box_inv)
+    m = m_f(pme_order)
+    theta_k = theta_f(m,pme_order,kpts_int,N)
+    V,S_k = SK_f(box,Q_mesh)
+    result = gamma_f(gamma, kappa, V, kpts, S_k, theta_k)
+    return result
+def pme_recip_2_base_jit(N,box,kpts_int,Q_mesh,gamma,kappa,pme_order):
+    # box_inv = box_inv_f_jit(box)
+    # kpts,ksq = kpts_f_jit(box_inv)
+    # m = m_f_jit(pme_order)
+    # theta_k = theta_f1_jit(m,pme_order,kpts_int,N)
+    # V,S_k = SK_f_jit(box,Q_mesh)
+    # result = gamma_f_jit(gamma, kappa, V, kpts, S_k, theta_k)
+    box_inv = box_inv_f(box)
+    kpts,ksq = kpts_f(box_inv)
+    m = m_f(pme_order)
+    theta_k = theta_f_jit(m,pme_order,kpts_int,N)
     V,S_k = SK_f(box,Q_mesh)
     result = gamma_f(gamma, kappa, V, kpts, S_k, theta_k)
     return result
@@ -343,5 +373,19 @@ if __name__=="__main__":
 
     spend_time = (timeit.default_timer() - start_time) / test_num
     print("pme2 jit theta 计算平均时间:", spend_time)
+
+    start_time = timeit.default_timer()
+    for i in range(test_num):
+        ene_recip = pme_recip_2_base(N, box, kpts_int, Q_mesh, False, 0.3458910584449768, 6)
+
+    spend_time = (timeit.default_timer() - start_time) / test_num
+    print("pme2 jit theta  基准计算平均时间:", spend_time)
+    ene_recip = pme_recip_2_base_jit(N, box, kpts_int, Q_mesh, False, 0.3458910584449768, 6)
+    start_time = timeit.default_timer()
+    for i in range(test_num):
+        ene_recip = pme_recip_2_base_jit(N, box, kpts_int, Q_mesh, False, 0.3458910584449768, 6)
+
+    spend_time = (timeit.default_timer() - start_time) / test_num
+    print("pme2 jit theta 基准jit 计算平均时间:", spend_time)
 
 
