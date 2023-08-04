@@ -1700,7 +1700,7 @@ def pme_recip_canjit2(N,box,kpts_int,Q_mesh,gamma,kappa):
     S_k = jnp.fft.fftn(Q_mesh).flatten()
     # for electrostatic, need to exclude gamma point
     # for dispersion, need to include gamma point
-    # return jax.lax.cond(not gamma,calc_true,calc_false,(kappa, V, kpts, S_k, theta_k))
+
     if not gamma:
         # C_k = Ck_fn(kpts[3, 1:], kappa, V)
         C_k = 2 * jnp.pi / V / kpts[3, 1:] * jnp.exp(-kpts[3, 1:] / 4 / kappa ** 2)
@@ -1730,6 +1730,7 @@ def calc_false(kappa, V, kpts, S_k, theta_k):
 
 # pme_recip_canjit1 = jit(pme_recip_canjit1,static_argnums=(0))
 # pme_recip_canjit2 = jit(pme_recip_canjit2,static_argnums=(4))
+# pme_recip_canjit2 = jit(pme_recip_canjit2)
 class CoulombPMEForce:
 
     def __init__(
