@@ -2,9 +2,8 @@
 from openmm import *
 from dmff import Hamiltonian, NeighborList
 from pme.pme_funcs import *
-from pme.setting import DO_JIT
 import openmm
-# from setting import DO_JIT
+from pme.setting import DO_JIT
 if __name__=="__main__":
 
     DIELECTRIC = 1389.3545584
@@ -12,7 +11,7 @@ if __name__=="__main__":
     DEFAULT_THOLE_WIDTH = 5.0
 
 
-    pdb = "0.pdb"
+    pdb = "0.100.pdb"
     prm = "pme_ff.xml"
     # prm, value",
     # [("tests/data/lj3.pdb", "tests/data/lj3.xml", -2.001220464706421)])
@@ -74,7 +73,7 @@ if __name__=="__main__":
     print(coulE)
     # with jax.profiler.trace("profile/jax-trace", create_perfetto_link=True):
     # jax.profiler.start_trace("/tmp/tensorboard")
-    coulforce1 = CoulombPMEForce_MoveN(r_cut, map_charge, kappa,
+    coulforce1 = CoulombPMEForce_all(r_cut, map_charge, kappa,
                                 (K1, K2, K3), topology_matrix=top_mat)
     coulenergy1= coulforce1.generate_get_energy()
     charge = jnp.ones(1, float)

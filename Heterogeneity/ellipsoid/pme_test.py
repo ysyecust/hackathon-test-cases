@@ -2,9 +2,8 @@
 from openmm import *
 from dmff import Hamiltonian, NeighborList
 from pme.pme_funcs import *
-from pme.setting import DO_JIT
 import openmm
-# from setting import DO_JIT
+from pme.setting import DO_JIT
 if __name__=="__main__":
 
     DIELECTRIC = 1389.3545584
@@ -12,7 +11,7 @@ if __name__=="__main__":
     DEFAULT_THOLE_WIDTH = 5.0
 
 
-    pdb = "0.pdb"
+    pdb = "cylinder.pdb"
     prm = "pme_ff.xml"
     # prm, value",
     # [("tests/data/lj3.pdb", "tests/data/lj3.xml", -2.001220464706421)])
@@ -51,30 +50,31 @@ if __name__=="__main__":
     K2 = 200
     K3 = 200
     top_mat = None
-    coulforce = CoulombPMEForce(r_cut, map_charge, kappa,
-                                (K1, K2, K3), topology_matrix=top_mat)
-    coulenergy = coulforce.generate_get_energy()
-    charge = jnp.ones(1,float)
-    mscales_coul =jnp.array([0.,0.,1.,1.,1.,1.],float)
-    coulE = coulenergy(positions, box, pairs,
-                       charge, mscales_coul)
-
     test_num = 30
-    start_time = timeit.default_timer()
-    for i in range(test_num):
-        coulE = coulenergy(positions, box, pairs,
-                           charge, mscales_coul)
-    spend_time = (timeit.default_timer() - start_time) / test_num
-    if DO_JIT:
-        print("计算平均时间 jit:",spend_time)
-    # print("计算平均时间:", (timeit.default_timer() - start_time) / test_num)
-    else:
-        print("计算平均时间:",spend_time)
-
-    print(coulE)
+    # coulforce = CoulombPMEForce(r_cut, map_charge, kappa,
+    #                             (K1, K2, K3), topology_matrix=top_mat)
+    # coulenergy = coulforce.generate_get_energy()
+    # charge = jnp.ones(1,float)
+    # mscales_coul =jnp.array([0.,0.,1.,1.,1.,1.],float)
+    # coulE = coulenergy(positions, box, pairs,
+    #                    charge, mscales_coul)
+    #
+    # test_num = 30
+    # start_time = timeit.default_timer()
+    # for i in range(test_num):
+    #     coulE = coulenergy(positions, box, pairs,
+    #                        charge, mscales_coul)
+    # spend_time = (timeit.default_timer() - start_time) / test_num
+    # if DO_JIT:
+    #     print("计算平均时间 jit:",spend_time)
+    # # print("计算平均时间:", (timeit.default_timer() - start_time) / test_num)
+    # else:
+    #     print("计算平均时间:",spend_time)
+    #
+    # print(coulE)
     # with jax.profiler.trace("profile/jax-trace", create_perfetto_link=True):
     # jax.profiler.start_trace("/tmp/tensorboard")
-    coulforce1 = CoulombPMEForce_MoveN(r_cut, map_charge, kappa,
+    coulforce1 = CoulombPMEForce_all(r_cut, map_charge, kappa,
                                 (K1, K2, K3), topology_matrix=top_mat)
     coulenergy1= coulforce1.generate_get_energy()
     charge = jnp.ones(1, float)
