@@ -51,7 +51,7 @@ if __name__=="__main__":
     K2 = 200
     K3 = 200
     top_mat = None
-    coulforce = CoulombPMEForce(r_cut, map_charge, kappa,
+    coulforce = CoulombPMEForce_MoveN(r_cut, map_charge, kappa,
                                 (K1, K2, K3), topology_matrix=top_mat)
     coulenergy = coulforce.generate_get_energy()
     charge = jnp.ones(1,float)

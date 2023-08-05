@@ -38,7 +38,7 @@ def bspline(u, order=pme_order):
         ]
         return jnp.sum(jnp.stack([condition * output for condition, output in zip(conditions, outputs)]),
                        axis=0)
-bspline = jax.jit(bspline)
+# bspline = jax.jit(bspline)
 
 def pme_recip_canjit1(N,Q_mesh,positions,box,Q):
     # N = jnp.array(N)
@@ -169,6 +169,32 @@ def pme_recip_part1(N,Q_mesh,positions,box,Q,pme_order,shifts):
     #               i in range(3)]
     # kpts_int = jnp.hstack([ki.flatten()[:, jnp.newaxis] for ki in jnp.meshgrid(kz, kx, ky)])
     return Q_mesh
+
+def pme_recip_part1(N,Q_mesh,positions,box,Q,pme_order,shifts):
+    n_mesh = pme_order ** 3
+    Nj_Aji_star = (N.reshape((1, 3)) * jnp.linalg.inv(box)).T
+    R_in_m_basis = jnp.einsum("ij,kj->ki", Nj_Aji_star, positions)
+    m_u0 = jnp.ceil(R_in_m_basis).astype(int)
+    u0 = (m_u0 - R_in_m_basis) + pme_order / 2
+    n_harm = 1
+    N_a = u0.shape[0]
+    u = (u0[:, jnp.newaxis, :] + shifts).reshape((N_a * n_mesh, 3))
+    M_u = bspline(u)
+    theta = jnp.prod(M_u, axis=-1)
+    sph_harms = theta.reshape(N_a, n_mesh, n_harm)
+    N_a = sph_harms.shape[0]
+    Q_dbf = Q[:, 0:1]
+    Q_mesh_pera = jnp.sum(Q_dbf[:, jnp.newaxis, :] * sph_harms, axis=2)
+    # indices_arr = jnp.mod(m_u0[:, jnp.newaxis, :] + shifts, N[jnp.newaxis, jnp.newaxis, :])
+    a = m_u0[:, jnp.newaxis, :] + shifts
+    b = N[jnp.newaxis, jnp.newaxis, :]
+    indices_arr = mod1(a,b)
+    Q_mesh = Q_mesh.at[indices_arr[:, :, 0], indices_arr[:, :, 1], indices_arr[:, :, 2]].add(Q_mesh_pera)
+    return Q_mesh
+pme_recip_part1 = jax.jit(pme_recip_part1,static_argnums=(0))
+def mod1(a,b):
+    return jnp.mod(a,b)
+mod1 = jax.jit(mod1)
 def box_inv_f(box):
     return jnp.linalg.inv(box)
 def kpts_f(box_inv):
@@ -367,25 +393,25 @@ if __name__=="__main__":
 
     spend_time = (timeit.default_timer() - start_time) / test_num
     print("pme2  theta 计算平均时间:",spend_time)
-    start_time = timeit.default_timer()
-    for i in range(test_num):
-        ene_recip = pme_recip_2_j(N, box, kpts_int, Q_mesh, False, 0.3458910584449768, 6)
-
-    spend_time = (timeit.default_timer() - start_time) / test_num
-    print("pme2 jit theta 计算平均时间:", spend_time)
-
-    start_time = timeit.default_timer()
-    for i in range(test_num):
-        ene_recip = pme_recip_2_base(N, box, kpts_int, Q_mesh, False, 0.3458910584449768, 6)
-
-    spend_time = (timeit.default_timer() - start_time) / test_num
-    print("pme2 jit theta  基准计算平均时间:", spend_time)
-    ene_recip = pme_recip_2_base_jit(N, box, kpts_int, Q_mesh, False, 0.3458910584449768, 6)
-    start_time = timeit.default_timer()
-    for i in range(test_num):
-        ene_recip = pme_recip_2_base_jit(N, box, kpts_int, Q_mesh, False, 0.3458910584449768, 6)
-
-    spend_time = (timeit.default_timer() - start_time) / test_num
-    print("pme2 jit theta 基准jit 计算平均时间:", spend_time)
+    # start_time = timeit.default_timer()
+    # for i in range(test_num):
+    #     ene_recip = pme_recip_2_j(N, box, kpts_int, Q_mesh, False, 0.3458910584449768, 6)
+    #
+    # spend_time = (timeit.default_timer() - start_time) / test_num
+    # print("pme2 jit theta 计算平均时间:", spend_time)
+    #
+    # start_time = timeit.default_timer()
+    # for i in range(test_num):
+    #     ene_recip = pme_recip_2_base(N, box, kpts_int, Q_mesh, False, 0.3458910584449768, 6)
+    #
+    # spend_time = (timeit.default_timer() - start_time) / test_num
+    # print("pme2 jit theta  基准计算平均时间:", spend_time)
+    # ene_recip = pme_recip_2_base_jit(N, box, kpts_int, Q_mesh, False, 0.3458910584449768, 6)
+    # start_time = timeit.default_timer()
+    # for i in range(test_num):
+    #     ene_recip = pme_recip_2_base_jit(N, box, kpts_int, Q_mesh, False, 0.3458910584449768, 6)
+    #
+    # spend_time = (timeit.default_timer() - start_time) / test_num
+    # print("pme2 jit theta 基准jit 计算平均时间:", spend_time)
 
 
